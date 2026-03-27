@@ -15,6 +15,8 @@ class MenuComponent extends Component
     public function __construct(
         public string $slug,
         public ?string $label = null,
+        public ?string $class = null,
+        public ?string $breakpoint = null,
     ) {
         $this->menu = Menu::where('slug', $slug)
             ->published()
@@ -23,10 +25,17 @@ class MenuComponent extends Component
 
     public function render(): View
     {
+        $settings = $this->menu->settings ?? [];
+        $breakpoint = $this->breakpoint
+            ?? $settings['breakpoint']
+            ?? config('navcraft.frontend.breakpoint', 'lg');
+
         return view('navcraft::components.nav', [
             'menu' => $this->menu,
             'items' => $this->menu->items()->with('allDescendants')->get(),
             'ariaLabel' => $this->label ?? $this->menu->name,
+            'navClass' => $this->class,
+            'breakpoint' => $breakpoint,
         ]);
     }
 }

@@ -6,8 +6,10 @@ namespace Crumbls\NavCraft\Resources;
 
 use BackedEnum;
 use Crumbls\NavCraft\Models\Menu;
+use Crumbls\NavCraft\Models\MenuItem;
 use Crumbls\NavCraft\Resources\MenuResource\Pages;
 use Crumbls\NavCraft\Resources\MenuResource\RelationManagers\MenuItemsRelationManager;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -115,6 +117,30 @@ class MenuResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
+                Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->requiresConfirmation()
+                    ->modalHeading('Duplicate Menu')
+                    ->modalDescription('This will create a copy of the menu with all its items.')
+                    ->action(function (Menu $record): void {
+                        $clone = $record->replicate(['all_items_count']);
+                        $clone->name = $record->name . ' (copy)';
+                        $clone->slug = $record->slug . '-copy-' . now()->timestamp;
+                        $clone->status = 'draft';
+                        $clone->save();
+
+                        $itemMap = [];
+
+                        $record->allItems()->orderBy('order')->each(function (MenuItem $item) use ($clone, &$itemMap): void {
+                            $newItem = $item->replicate();
+                            $newItem->menu_id = $clone->id;
+                            $newItem->parent_id = $item->parent_id ? ($itemMap[$item->parent_id] ?? null) : null;
+                            $newItem->save();
+
+                            $itemMap[$item->id] = $newItem->id;
+                        });
+                    }),
                 DeleteAction::make(),
             ]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Crumbls\NavCraft;
 
+use Crumbls\NavCraft\Console\Commands\InstallCommand;
 use Crumbls\NavCraft\Support\MenuRenderer;
 use Crumbls\NavCraft\View\Components\BreadcrumbComponent;
 use Crumbls\NavCraft\View\Components\MenuComponent;
@@ -28,6 +29,12 @@ class NavCraftServiceProvider extends ServiceProvider
         Blade::directive('navcraft', fn (string $expression): string => "<?php echo \\Crumbls\\NavCraft\\Support\\MenuRenderer::fromSlug({$expression})->toHtml(); ?>");
 
         Blade::directive('navCraftScripts', fn (): string => "<?php echo view('navcraft::components.scripts')->render(); ?>");
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                InstallCommand::class,
+            ]);
+        }
 
         $this->publishes([
             __DIR__ . '/../config/navcraft.php' => config_path('navcraft.php'),

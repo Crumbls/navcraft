@@ -4,34 +4,61 @@
     $sticky = $settings['sticky'] ?? false;
     $theme = $settings['theme'] ?? 'minimal';
     $hoverMode = $settings['hover_mode'] ?? 'click';
+    $breakpoint = $breakpoint ?? $settings['breakpoint'] ?? config('navcraft.frontend.breakpoint', 'lg');
+    $navClass = $navClass ?? '';
+
+    $bpShow = "{$breakpoint}:flex";
+    $bpHide = "{$breakpoint}:hidden";
 @endphp
 
 <nav
     aria-label="{{ $ariaLabel }}"
     role="navigation"
-    class="relative bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700 {{ $sticky ? 'sticky top-0 z-50 shadow-sm backdrop-blur-sm bg-white/95 dark:bg-gray-900/95' : '' }}"
-    x-data="navCraft({ hoverMode: '{{ $hoverMode }}' })"
+    class="relative bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700 {{ $sticky ? 'sticky top-0 z-50 shadow-sm backdrop-blur-sm bg-white/95 dark:bg-gray-900/95' : '' }} {{ $navClass }}"
+    x-data="navCraft({ hoverMode: '{{ $hoverMode }}', menuId: '{{ $menu->slug }}' })"
     @click.outside="openMenu = null"
     @keydown.escape.window="openMenu ? (openMenu = null) : (mobileOpen = false)"
     data-theme="{{ $theme }}"
 >
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-14">
+            {{-- Logo slot --}}
+            @if(isset($logo))
+                <div class="shrink-0">
+                    {{ $logo }}
+                </div>
+            @endif
+
             {{-- Desktop menu --}}
-            <ul role="menubar" class="hidden lg:flex items-center gap-1" aria-label="{{ $ariaLabel }}">
+            <ul role="menubar" class="hidden {{ $bpShow }} items-center gap-1" aria-label="{{ $ariaLabel }}">
                 @foreach($items as $item)
                     @include('navcraft::components.menu-item', [
                         'item' => $item,
                         'depth' => 0,
                         'theme' => $theme,
+                        'menuSlug' => $menu->slug,
                     ])
                 @endforeach
             </ul>
 
+            {{-- Search slot --}}
+            @if(isset($search))
+                <div class="hidden {{ $bpShow }} items-center">
+                    {{ $search }}
+                </div>
+            @endif
+
+            {{-- Actions slot --}}
+            @if(isset($actions))
+                <div class="hidden {{ $bpShow }} items-center gap-3">
+                    {{ $actions }}
+                </div>
+            @endif
+
             {{-- Mobile hamburger --}}
             <button
                 type="button"
-                class="lg:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                class="{{ $bpHide }} p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 @click="mobileOpen = !mobileOpen"
                 :aria-expanded="mobileOpen.toString()"
                 aria-controls="nc-mobile-menu-{{ $menu->id }}"
@@ -43,7 +70,7 @@
         </div>
     </div>
 
-    {{-- Mobile slide-out menu --}}
+    {{-- Mobile menu --}}
     <div
         id="nc-mobile-menu-{{ $menu->id }}"
         x-show="mobileOpen"
@@ -54,7 +81,7 @@
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0 -translate-y-4"
         x-cloak
-        class="lg:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+        class="{{ $bpHide }} border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
         role="menu"
         aria-label="{{ $ariaLabel }} mobile"
     >
@@ -66,5 +93,15 @@
                 ])
             @endforeach
         </ul>
+
+        {{-- Mobile actions slot --}}
+        @if(isset($mobileActions))
+            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                {{ $mobileActions }}
+            </div>
+        @endif
     </div>
+
+    {{-- Default slot for extra content --}}
+    {{ $slot ?? '' }}
 </nav>

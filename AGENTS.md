@@ -1,797 +1,360 @@
-# Layup Widget Development Guide for AI Agents
+# NavCraft Customization Guide for AI Agents
 
-This document is a complete reference for AI coding agents (Claude Code, Cursor, Copilot, etc.) to create Layup widgets without error. Follow every rule precisely. Deviations cause runtime failures, missing form fields, or broken rendering.
+This document is a complete reference for AI coding agents (Claude Code, Cursor, Copilot, etc.) to customize NavCraft menu rendering. Follow every rule precisely.
 
 ## Architecture Overview
 
-A Layup widget consists of exactly three files:
+NavCraft renders menus through a pipeline of Blade views. Every view is publishable and overridable. The rendering chain is:
 
-1. **PHP class** -- extends `Crumbls\Layup\View\BaseWidget`, defines form fields, defaults, preview, and metadata
-2. **Blade view** -- renders the widget's frontend HTML using the `$data` array
-3. **Test file** (optional) -- Pest test using `LayupAssertions` trait
-
-The PHP class is a static configuration object. All public methods are `static`. The class is never instantiated by the developer -- `BaseWidget::make($data)` handles construction internally. The Blade view receives `$data` (associative array) and `$children` (array of child view components, usually empty for widgets).
+```
+Menu model -> MenuRenderer/MenuComponent -> nav.blade.php
+  -> menu-item.blade.php (recursive, per item)
+  -> mega-panel.blade.php (for mega menu items)
+  -> menu-item-mobile.blade.php (recursive, mobile accordion)
+  -> scripts.blade.php (Alpine.js component)
+  -> breadcrumb.blade.php (optional breadcrumb component)
+```
 
 ## File Locations
 
-| File | Path | Convention |
-|------|------|------------|
-| PHP class | `app/Layup/Widgets/{ClassName}Widget.php` | PascalCase, must end in `Widget` |
-| Blade view | `resources/views/components/layup/{type}.blade.php` | kebab-case, matches `getType()` |
-| Test file | `tests/Unit/Layup/{ClassName}WidgetTest.php` | Matches class name |
-
-For package development (inside crumbls/layup itself):
-
-| File | Path |
-|------|------|
-| PHP class | `src/View/{ClassName}Widget.php` |
-| Blade view | `resources/views/components/{type}.blade.php` |
-| Test file | `tests/Unit/{ClassName}WidgetTest.php` |
-
-## The Critical Rule: Field Name Alignment
-
-**Every key in `getDefaultData()` must exactly match a field name in `getContentFormSchema()`, and vice versa.** This is the most common source of errors. The builder stores data using the field names from the form schema. The Blade view accesses data using the keys from `getDefaultData()`. If these do not align, fields silently lose their values or Blade views throw `Undefined array key` errors.
-
-```php
-// CORRECT -- field names match default data keys
-public static function getContentFormSchema(): array
-{
-    return [
-        TextInput::make('title'),     // field name: 'title'
-        TextInput::make('subtitle'),  // field name: 'subtitle'
-    ];
-}
-
-public static function getDefaultData(): array
-{
-    return [
-        'title' => '',       // matches 'title'
-        'subtitle' => '',    // matches 'subtitle'
-    ];
-}
-
-// WRONG -- mismatch causes silent data loss
-public static function getContentFormSchema(): array
-{
-    return [
-        TextInput::make('heading'),  // field name: 'heading'
-    ];
-}
-
-public static function getDefaultData(): array
-{
-    return [
-        'title' => '',  // WRONG -- does not match 'heading'
-    ];
-}
+### Package views (defaults):
+```
+packages/navcraft/resources/views/components/
+  nav.blade.php                 -- <nav> wrapper, desktop + mobile
+  menu-item.blade.php           -- desktop item (recursive)
+  menu-item-mobile.blade.php    -- mobile item (recursive)
+  mega-panel.blade.php          -- mega menu content panel
+  breadcrumb.blade.php          -- breadcrumb trail
+  scripts.blade.php             -- Alpine.js navCraft component
 ```
 
-For `Repeater` fields, the default must be an array of associative arrays matching the repeater's child schema:
-
-```php
-Repeater::make('items')
-    ->schema([
-        TextInput::make('title'),
-        RichEditor::make('content'),
-    ])
-
-// Default:
-'items' => [
-    ['title' => 'Item 1', 'content' => ''],
-    ['title' => 'Item 2', 'content' => ''],
-]
+### Published views (overrides):
+```
+resources/views/vendor/navcraft/components/
+  nav.blade.php
+  menu-item.blade.php
+  menu-item-mobile.blade.php
+  mega-panel.blade.php
+  breadcrumb.blade.php
+  scripts.blade.php
 ```
 
-## PHP Class Template
-
-Every widget class follows this exact structure. Do not add constructors, instance properties, or non-static methods other than `render()`.
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace App\Layup\Widgets;
-
-use Crumbls\Layup\View\BaseWidget;
-use Crumbls\Layup\Support\WidgetContext;
-use Filament\Forms\Components\TextInput;
-
-class ExampleWidget extends BaseWidget
-{
-    public static function getType(): string
-    {
-        return 'example';
-    }
-
-    public static function getLabel(): string
-    {
-        return 'Example Widget';
-    }
-
-    public static function getIcon(): string
-    {
-        return 'heroicon-o-cube';
-    }
-
-    public static function getCategory(): string
-    {
-        return 'content';
-    }
-
-    public static function getContentFormSchema(): array
-    {
-        return [
-            TextInput::make('title')
-                ->label('Title')
-                ->required(),
-        ];
-    }
-
-    public static function getDefaultData(): array
-    {
-        return [
-            'title' => '',
-        ];
-    }
-
-    public static function getPreview(array $data): string
-    {
-        return $data['title'] ?? '(empty)';
-    }
-}
+Publish with:
+```bash
+php artisan vendor:publish --tag=navcraft-views
 ```
 
-## Required Static Methods
+## Quick Start: Custom Menu Rendering
 
-### getType(): string
+### Step 1: Publish the views
 
-Returns a unique kebab-case identifier. This value:
-- Is stored in the JSON content structure
-- Maps to the Blade view path: `components.layup.{type}` (for app widgets) or `layup::components.{type}` (for package widgets)
-- Must be unique across all registered widgets
-
-```php
-public static function getType(): string
-{
-    return 'pricing-card';
-}
+```bash
+php artisan vendor:publish --tag=navcraft-views
 ```
 
-### getLabel(): string
+### Step 2: Edit the views
 
-Human-readable name shown in the widget picker. For built-in widgets, use translation keys. For app widgets, a plain string is fine.
+All views are in `resources/views/vendor/navcraft/components/`. Edit freely -- they are standard Blade templates using Tailwind CSS and Alpine.js.
 
-```php
-// Built-in widget:
-public static function getLabel(): string
-{
-    return __('layup::widgets.labels.pricing-card');
-}
-
-// App widget:
-public static function getLabel(): string
-{
-    return 'Pricing Card';
-}
-```
-
-### getIcon(): string
-
-Must start with `heroicon-o-` (outline) or `heroicon-s-` (solid). The icon appears in the widget picker. Choose an icon that represents the widget's purpose.
-
-Common choices:
-- `heroicon-o-document-text` -- text/content widgets
-- `heroicon-o-photo` -- image/media widgets
-- `heroicon-o-cursor-arrow-rays` -- interactive/button widgets
-- `heroicon-o-cube` -- generic custom widgets
-- `heroicon-o-chart-bar` -- data/stats widgets
-- `heroicon-o-clock` -- time-related widgets
-- `heroicon-o-map-pin` -- location widgets
-
-### getCategory(): string
-
-One of these five values. Do not invent new categories:
-- `'content'` -- text, headings, lists, accordions, tabs
-- `'media'` -- images, video, audio, galleries, maps
-- `'interactive'` -- buttons, forms, countdowns, pricing
-- `'layout'` -- spacers, dividers, sections
-- `'advanced'` -- HTML, code, embeds
-
-### getContentFormSchema(): array
-
-Returns Filament form components for the Content tab only. The Design tab (colors, spacing, borders, shadows) and Advanced tab (ID, classes, CSS, visibility, animations) are inherited automatically from `BaseView`.
-
-**Do not** include design or advanced fields here -- they are handled by the framework.
-
-Available Filament components:
-- `TextInput::make('name')` -- single-line text, URL, color, number
-- `Textarea::make('name')` -- multi-line text
-- `RichEditor::make('name')` -- WYSIWYG HTML editor
-- `Select::make('name')` -- dropdown
-- `Toggle::make('name')` -- boolean switch
-- `Checkbox::make('name')` -- boolean checkbox
-- `CheckboxList::make('name')` -- multiple checkboxes
-- `FileUpload::make('name')` -- file/image upload
-- `Repeater::make('name')` -- repeatable groups
-- `DateTimePicker::make('name')` -- date/time
-
-For color fields, use `TextInput` with `->type('color')`:
-```php
-TextInput::make('bg_color')
-    ->label('Background Color')
-    ->type('color')
-    ->nullable(),
-```
-
-For image uploads:
-```php
-FileUpload::make('src')
-    ->label('Image')
-    ->image()
-    ->directory('layup/images'),
-```
-
-The upload disk is applied automatically by `BaseView::withUploadDisk()`. Do not call `->disk()` manually.
-
-### getDefaultData(): array
-
-Every key must match a field name from `getContentFormSchema()`. Provide sensible defaults:
-- Strings: `''` (empty string)
-- Booleans: `false` or `true`
-- Numbers: `0`
-- Selects: the default option value (e.g., `'primary'`)
-- Repeaters: array with 1-3 example items
-- File uploads: `''`
-
-### getPreview(array $data): string
-
-Returns a short string shown on the builder canvas. The base class provides a fallback that checks `$data['content']`, then `$data['label']`, then `$data['src']`. Override for better previews.
-
-Pattern: descriptive text showing the widget's key value.
-
-```php
-// Simple:
-return $data['title'] ?? '(empty)';
-
-// With context:
-$count = count($data['items'] ?? []);
-return "Accordion -- {$count} items";
-
-// With URL:
-$label = $data['label'] ?? 'Button';
-$url = $data['url'] ?? '#';
-return "{$label}" . ($url !== '#' ? " -> {$url}" : '');
-```
-
-## Blade View Template
-
-Every Blade view must integrate four features from the Design and Advanced tabs. These are provided as static helper methods on `BaseView`. Missing any of these means that feature silently stops working for your widget.
-
-### Mandatory Integration Points
-
-1. **`id` attribute** -- from Advanced tab
-2. **`class` attribute** -- visibility classes + user's custom classes
-3. **`style` attribute** -- inline styles from Design tab
-4. **Animation attributes** -- Alpine.js directives from Advanced tab
-
-### Standard Wrapper Pattern
+### Step 3: Render the menu
 
 ```blade
-@php
-    $vis = \Crumbls\Layup\View\BaseView::visibilityClasses($data['hide_on'] ?? []);
-@endphp
-<div
-    @if(!empty($data['id']))id="{{ $data['id'] }}"@endif
-    class="{{ $vis }} {{ $data['class'] ?? '' }}"
-    style="{{ \Crumbls\Layup\View\BaseView::buildInlineStyles($data) }}"
-    {!! \Crumbls\Layup\View\BaseView::animationAttributes($data) !!}
+{{-- In your layout --}}
+@navCraftScripts
+@navcraft('your-menu-slug')
+
+{{-- Or as a component --}}
+<x-navcraft-menu slug="your-menu-slug" label="Main Navigation" />
+
+{{-- Breadcrumbs --}}
+<x-navcraft-breadcrumb slug="your-menu-slug" />
+```
+
+## Available Variables in Each View
+
+### nav.blade.php
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$menu` | `Menu` model | The menu being rendered |
+| `$items` | `Collection<MenuItem>` | Top-level items with `allDescendants` eager-loaded |
+| `$ariaLabel` | `string` | Label for the `<nav>` element |
+
+### menu-item.blade.php / menu-item-mobile.blade.php
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$item` | `MenuItem` model | The current item |
+| `$depth` | `int` | Nesting depth (0 = top level) |
+| `$theme` | `string` | Theme preset name (desktop only) |
+
+### mega-panel.blade.php
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$item` | `MenuItem` model | The mega menu item |
+| `$panelId` | `string` | HTML id for the panel |
+| `$parentId` | `string` | HTML id of the trigger button |
+
+### breadcrumb.blade.php
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$breadcrumbs` | `array<MenuItem>` | Ordered ancestor trail to current page |
+
+## MenuItem Model Methods
+
+These methods are available on every `$item` in the views:
+
+```php
+$item->label           // Display text
+$item->type            // 'url', 'route', or 'mega'
+$item->url             // URL string (for url type)
+$item->route           // Route name (for route type)
+$item->target          // '_self' or '_blank'
+$item->css_class       // Custom CSS classes
+$item->icon            // Heroicon component name
+$item->content         // Layup JSON (for mega type)
+$item->settings        // Settings array (route_params, etc.)
+$item->children        // Collection of child MenuItems
+$item->parent          // Parent MenuItem (nullable)
+
+$item->getUrl()        // Resolved URL (handles both url and route types)
+$item->isOnActiveTrail()   // True if this item or any descendant matches current URL
+$item->getAncestorTrail()  // Array of ancestors from root to this item
+```
+
+## Menu Settings
+
+The `$menu->settings` array can contain:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `sticky` | bool | `false` | Sticky nav on scroll |
+| `theme` | string | `'minimal'` | Theme preset: `minimal`, `bordered`, `pill`, `underline` |
+| `hover_mode` | string | `'click'` | Desktop dropdown trigger: `'click'` or `'hover'` |
+
+Access in views: `$menu->settings['sticky'] ?? false`
+
+## Alpine.js Component API
+
+The `navCraft` Alpine component is available on the `<nav>` element. It provides:
+
+```js
+// State
+openMenu      // Currently open desktop dropdown ID (string or null)
+mobileOpen    // Mobile menu visible (boolean)
+mobileExpanded // Currently expanded mobile accordion ID (string or null)
+
+// Methods
+toggle(id)        // Toggle desktop dropdown
+open(id)          // Open desktop dropdown
+close(id)         // Close specific dropdown
+closeAll()        // Close all dropdowns and mobile menu
+hoverOpen(id)     // Open on hover (respects hoverMode setting)
+hoverClose(id)    // Close on hover leave (150ms delay)
+focusFirst(panelId) // Focus first link/button in panel
+focusTrigger(triggerId) // Return focus to trigger button
+```
+
+## Customization Patterns
+
+### Pattern 1: Change the nav container
+
+Edit `nav.blade.php`. The outer `<nav>` must keep `x-data="navCraft(...)"` and the ARIA attributes. Everything else is yours.
+
+```blade
+<nav
+    aria-label="{{ $ariaLabel }}"
+    role="navigation"
+    class="your-custom-classes"
+    x-data="navCraft({ hoverMode: '{{ $hoverMode }}' })"
+    @click.outside="openMenu = null"
+    @keydown.escape.window="openMenu ? (openMenu = null) : (mobileOpen = false)"
 >
-    {{-- Widget content here --}}
+    {{-- Your layout here --}}
+</nav>
+```
+
+### Pattern 2: Custom item rendering per type
+
+In `menu-item.blade.php`, switch on `$item->type`:
+
+```blade
+@switch($item->type)
+    @case('mega')
+        {{-- Custom mega menu trigger --}}
+        @break
+    @case('route')
+        {{-- Custom route link --}}
+        @break
+    @default
+        {{-- Standard link --}}
+@endswitch
+```
+
+### Pattern 3: Add a logo and actions to the nav
+
+Edit `nav.blade.php` to add slots around the menu list:
+
+```blade
+<div class="flex items-center justify-between h-16">
+    {{-- Logo --}}
+    <a href="/" class="shrink-0">
+        <img src="/logo.svg" alt="Home" class="h-8">
+    </a>
+
+    {{-- Desktop menu --}}
+    <ul role="menubar" class="hidden lg:flex items-center gap-1">
+        @foreach($items as $item)
+            @include('navcraft::components.menu-item', ['item' => $item, 'depth' => 0, 'theme' => $theme])
+        @endforeach
+    </ul>
+
+    {{-- Actions --}}
+    <div class="hidden lg:flex items-center gap-3">
+        <a href="/login" class="text-sm">Log in</a>
+        <a href="/signup" class="btn-primary">Sign up</a>
+    </div>
+
+    {{-- Mobile hamburger --}}
+    {{-- ... --}}
 </div>
 ```
 
-### Helper Methods Reference
+### Pattern 4: Custom mega menu panel
 
-**`BaseView::visibilityClasses(array $hideOn): string`**
-
-Converts the `hide_on` checkbox values into Tailwind responsive visibility classes. Always pass `$data['hide_on'] ?? []`.
-
-```php
-// Input: ['sm', 'lg']
-// Output: 'hidden md:block lg:hidden'
-```
-
-**`BaseView::buildInlineStyles(array $data): string`**
-
-Reads Design tab fields and compiles them into a CSS string. Pass the entire `$data` array. Handles: `text_color`, `text_align`, `font_size`, `border_radius`, `border_width`+`border_style`+`border_color`, `box_shadow`, `opacity`, `background_color`, `inline_css`.
-
-```php
-// Output: "color: #333; text-align: center; font-size: 1.25rem; background-color: #f0f0f0;"
-```
-
-**`BaseView::animationAttributes(array $data): string`**
-
-Generates Alpine.js directives for entrance animations. Returns an empty string if no animation is configured. Use `{!! !!}` (unescaped) because the output contains HTML attributes.
-
-```php
-// Output: 'x-data="{ shown: false }" x-intersect.once="shown = true" :style="shown ? ..."'
-```
-
-### Data Access in Blade
-
-Always use null-coalescing for every data access:
+Edit `mega-panel.blade.php`. The wrapper must keep `id`, `role="region"`, `x-show`, and `x-cloak`:
 
 ```blade
-{{-- Text output (escaped) --}}
-{{ $data['title'] ?? '' }}
-
-{{-- HTML output (unescaped -- for RichEditor content) --}}
-{!! $data['content'] ?? '' !!}
-
-{{-- Conditional rendering --}}
-@if(!empty($data['caption']))
-    <p>{{ $data['caption'] }}</p>
-@endif
-
-{{-- File uploads -- check is_array for edit-mode compatibility --}}
-@if(!empty($data['src']))
-    <img src="{{ is_array($data['src']) ? '' : asset('storage/' . $data['src']) }}"
-         alt="{{ $data['alt'] ?? '' }}" />
-@endif
-
-{{-- Repeater items --}}
-@foreach(($data['items'] ?? []) as $index => $item)
-    <div>{{ $item['title'] ?? '' }}</div>
-@endforeach
-
-{{-- Select/match for variant styles --}}
-{{ match($data['style'] ?? 'primary') {
-    'primary' => 'bg-blue-600 text-white',
-    'secondary' => 'bg-gray-600 text-white',
-    default => 'bg-blue-600 text-white',
-} }}
-```
-
-### File Upload Image Handling
-
-File uploads store a string path during save (e.g., `layup/images/photo.jpg`) but may be a temporary array during editing. Always guard:
-
-```blade
-@php
-    $src = is_array($data['src'] ?? null) ? '' : ($data['src'] ?? '');
-@endphp
-@if($src !== '')
-    <img src="{{ asset('storage/' . $src) }}" alt="{{ $data['alt'] ?? '' }}" />
-@endif
-```
-
-### Using WidgetData (Optional)
-
-For cleaner Blade views, use the `WidgetData` value object:
-
-```blade
-@php $d = \Crumbls\Layup\Support\WidgetData::from($data); @endphp
-<h1>{{ $d->string('title') }}</h1>
-<img src="{{ $d->storageUrl('src') }}" alt="{{ $d->string('alt') }}" />
-@if($d->bool('show_overlay'))
-    <div style="opacity: {{ $d->float('opacity', 0.5) }}"></div>
-@endif
-```
-
-## Optional Static Methods
-
-These have no-op defaults in `BaseWidget`. Override only when needed.
-
-### prepareForRender(array $data): array
-
-Transform data before it reaches the Blade view. Use for computed values, type casting, or URL resolution. Called automatically in the render pipeline.
-
-```php
-public static function prepareForRender(array $data): array
-{
-    $data['target_timestamp'] = strtotime($data['target_date'] ?? 'now');
-    $data['is_expired'] = $data['target_timestamp'] < time();
-
-    return $data;
-}
-```
-
-### getValidationRules(): array
-
-Validation rules checked by `ContentValidator`. Keys are field names, values are Laravel validation rule strings.
-
-```php
-public static function getValidationRules(): array
-{
-    return [
-        'label' => 'required|string',
-        'url' => 'required|url',
-    ];
-}
-```
-
-### getSearchTerms(): array
-
-Extra terms for the widget picker search. The picker already searches `getType()` and `getLabel()`.
-
-```php
-public static function getSearchTerms(): array
-{
-    return ['cta', 'action', 'conversion'];
-}
-```
-
-### isDeprecated(): bool / getDeprecationMessage(): string
-
-Mark a widget for removal. Surfaced in `layup:doctor` and `layup:audit`.
-
-```php
-public static function isDeprecated(): bool
-{
-    return true;
-}
-
-public static function getDeprecationMessage(): string
-{
-    return 'Use CardWidget instead. Removal planned for v2.0.';
-}
-```
-
-### getAssets(): array
-
-Declare external JS/CSS the widget requires. Collected by `WidgetAssetCollector`.
-
-```php
-public static function getAssets(): array
-{
-    return [
-        'js' => ['https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js'],
-        'css' => [],
-    ];
-}
-```
-
-### Lifecycle Hooks
-
-All receive `$data` and optional `WidgetContext`. All return the (possibly modified) `$data` array except `onDelete` which returns `void`.
-
-```php
-// Called after the form is saved
-public static function onSave(array $data, ?WidgetContext $context = null): array
-{
-    // Normalize, sanitize, or transform data before storage
-    return $data;
-}
-
-// Called when widget is first created
-public static function onCreate(array $data, ?WidgetContext $context = null): array
-{
-    return $data;
-}
-
-// Called when widget is deleted -- cleanup resources
-public static function onDelete(array $data, ?WidgetContext $context = null): void
-{
-    if (!empty($data['src']) && is_string($data['src'])) {
-        Storage::disk(config('layup.uploads.disk', 'public'))->delete($data['src']);
-    }
-}
-
-// Called when widget is duplicated -- clone resources
-public static function onDuplicate(array $data, ?WidgetContext $context = null): array
-{
-    if (!empty($data['src']) && is_string($data['src'])) {
-        $ext = pathinfo($data['src'], PATHINFO_EXTENSION);
-        $newPath = 'layup/images/' . Str::uuid() . '.' . $ext;
-        Storage::disk(config('layup.uploads.disk', 'public'))->copy($data['src'], $newPath);
-        $data['src'] = $newPath;
-    }
-
-    return $data;
-}
-```
-
-## Form Field Packs
-
-Reusable field groups for common patterns. Spread them into `getContentFormSchema()`:
-
-```php
-use Crumbls\Layup\Support\FieldPacks;
-
-public static function getContentFormSchema(): array
-{
-    return [
-        TextInput::make('heading')->required(),
-        ...FieldPacks::image('hero'),         // hero_src (FileUpload) + hero_alt (TextInput)
-        ...FieldPacks::link('cta'),           // cta_url (TextInput) + cta_new_tab (Toggle)
-        ...FieldPacks::colorPair('text', 'bg'), // text_color + bg_color
-        ...FieldPacks::hoverColors('btn'),    // btn_bg_color, btn_hover_bg_color, btn_text_color, btn_hover_text_color
-    ];
-}
-```
-
-When using FieldPacks, the field names are prefixed. Your `getDefaultData()` must match:
-
-```php
-public static function getDefaultData(): array
-{
-    return [
-        'heading' => '',
-        'hero_src' => '',        // from FieldPacks::image('hero')
-        'hero_alt' => '',        // from FieldPacks::image('hero')
-        'cta_url' => '',         // from FieldPacks::link('cta')
-        'cta_new_tab' => false,  // from FieldPacks::link('cta')
-        'text_color' => '',      // from FieldPacks::colorPair('text', 'bg')
-        'bg_color' => '',        // from FieldPacks::colorPair('text', 'bg')
-        'btn_bg_color' => '',    // from FieldPacks::hoverColors('btn')
-        'btn_hover_bg_color' => '',
-        'btn_text_color' => '',
-        'btn_hover_text_color' => '',
-    ];
-}
-```
-
-## Registration
-
-After creating the PHP class and Blade view, the widget must be registered.
-
-**Option 1: Auto-discovery** -- place in `app/Layup/Widgets/`. Also register with the Filament plugin:
-```php
-LayupPlugin::make()->widgets([MyWidget::class])
-```
-
-**Option 2: Config** -- add to `config/layup.php` `widgets` array.
-
-**Option 3: Plugin only** -- register via `LayupPlugin::make()->widgets([...])`.
-
-## Test File
-
-Generate with `php artisan layup:make-widget MyWidget --with-test`, or create manually:
-
-```php
-<?php
-
-use Crumbls\Layup\Testing\LayupAssertions;
-use App\Layup\Widgets\MyWidget;
-
-uses(LayupAssertions::class);
-
-it('satisfies the widget contract', function () {
-    $this->assertWidgetContractValid(MyWidget::class);
-});
-
-it('defaults cover all form fields', function () {
-    $this->assertDefaultsCoverFormFields(MyWidget::class);
-});
-
-it('renders with default data', function () {
-    $this->assertWidgetRendersWithDefaults(MyWidget::class);
-});
-```
-
-The assertions check:
-- `assertWidgetContractValid` -- implements Widget, type/label/icon/category non-empty, icon starts with `heroicon-`, form schema is array, defaults is array, preview returns string, `toArray()` has required keys
-- `assertDefaultsCoverFormFields` -- every field name in `getContentFormSchema()` has a corresponding key in `getDefaultData()`
-- `assertWidgetRendersWithDefaults` -- widget renders non-empty HTML with default data
-
-## Debugging
-
-Use the Artisan command to inspect a widget's full state:
-
-```bash
-php artisan layup:debug-widget my-type --data='{"title":"Hello"}'
-```
-
-This prints: type, class, category, deprecated status, form fields, defaults, merged data, validation rules, assets, search terms, preview, prepareForRender output, and rendered HTML.
-
-## Complete Example: Testimonial Card Widget
-
-### PHP Class
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace App\Layup\Widgets;
-
-use Crumbls\Layup\View\BaseWidget;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-
-class TestimonialCardWidget extends BaseWidget
-{
-    public static function getType(): string
-    {
-        return 'testimonial-card';
-    }
-
-    public static function getLabel(): string
-    {
-        return 'Testimonial Card';
-    }
-
-    public static function getIcon(): string
-    {
-        return 'heroicon-o-chat-bubble-bottom-center-text';
-    }
-
-    public static function getCategory(): string
-    {
-        return 'content';
-    }
-
-    public static function getContentFormSchema(): array
-    {
-        return [
-            Textarea::make('quote')
-                ->label('Quote')
-                ->required()
-                ->rows(3),
-            TextInput::make('author')
-                ->label('Author Name')
-                ->required(),
-            TextInput::make('role')
-                ->label('Role / Title'),
-            FileUpload::make('avatar')
-                ->label('Avatar')
-                ->image()
-                ->directory('layup/images')
-                ->avatar(),
-            Select::make('style')
-                ->label('Card Style')
-                ->options([
-                    'default' => 'Default',
-                    'bordered' => 'Bordered',
-                    'filled' => 'Filled Background',
-                ])
-                ->default('default'),
-        ];
-    }
-
-    public static function getDefaultData(): array
-    {
-        return [
-            'quote' => '',
-            'author' => '',
-            'role' => '',
-            'avatar' => '',
-            'style' => 'default',
-        ];
-    }
-
-    public static function getPreview(array $data): string
-    {
-        $author = $data['author'] ?? '';
-        $quote = $data['quote'] ?? '';
-        $short = mb_strlen($quote) > 40 ? mb_substr($quote, 0, 40) . '...' : $quote;
-
-        if ($author !== '') {
-            return "\"{$short}\" -- {$author}";
-        }
-
-        return $short !== '' ? "\"{$short}\"" : '(empty testimonial)';
-    }
-
-    public static function getSearchTerms(): array
-    {
-        return ['review', 'feedback', 'quote', 'endorsement'];
-    }
-
-    public static function getValidationRules(): array
-    {
-        return [
-            'quote' => 'required|string',
-            'author' => 'required|string',
-        ];
-    }
-}
-```
-
-### Blade View
-
-File: `resources/views/components/layup/testimonial-card.blade.php`
-
-```blade
-@php
-    $vis = \Crumbls\Layup\View\BaseView::visibilityClasses($data['hide_on'] ?? []);
-    $styles = \Crumbls\Layup\View\BaseView::buildInlineStyles($data);
-    $avatar = is_array($data['avatar'] ?? null) ? '' : ($data['avatar'] ?? '');
-    $cardClass = match($data['style'] ?? 'default') {
-        'bordered' => 'border border-gray-200 dark:border-gray-700',
-        'filled' => 'bg-gray-50 dark:bg-gray-800',
-        default => '',
-    };
-@endphp
-<blockquote
-    @if(!empty($data['id']))id="{{ $data['id'] }}"@endif
-    class="rounded-lg p-6 {{ $cardClass }} {{ $vis }} {{ $data['class'] ?? '' }}"
-    style="{{ $styles }}"
-    {!! \Crumbls\Layup\View\BaseView::animationAttributes($data) !!}
+<div
+    id="{{ $panelId }}"
+    role="region"
+    aria-labelledby="{{ $parentId }}"
+    x-show="openMenu === '{{ $parentId }}'"
+    x-cloak
+    class="your-panel-classes"
+    @keydown.escape.prevent="close('{{ $parentId }}'); focusTrigger('{{ $parentId }}')"
 >
-    @if(!empty($data['quote']))
-        <p class="text-gray-700 dark:text-gray-300 italic mb-4">"{{ $data['quote'] }}"</p>
+    {{-- Your mega menu layout --}}
+    @if(! empty($item->content['rows']))
+        @layup($item->content)
+    @else
+        {{-- Fallback content --}}
     @endif
-    <footer class="flex items-center gap-3">
-        @if($avatar !== '')
-            <img src="{{ asset('storage/' . $avatar) }}" alt="{{ $data['author'] ?? '' }}" class="w-10 h-10 rounded-full object-cover" />
-        @endif
-        <div>
-            @if(!empty($data['author']))
-                <cite class="font-medium text-gray-900 dark:text-white not-italic">{{ $data['author'] }}</cite>
-            @endif
-            @if(!empty($data['role']))
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $data['role'] }}</p>
-            @endif
-        </div>
-    </footer>
-</blockquote>
+</div>
 ```
 
-### Test File
+### Pattern 5: Completely custom rendering without views
 
-File: `tests/Unit/Layup/TestimonialCardWidgetTest.php`
+Use `MenuRenderer` directly or query the models:
 
 ```php
-<?php
+use Crumbls\NavCraft\Models\Menu;
 
-use Crumbls\Layup\Testing\LayupAssertions;
-use App\Layup\Widgets\TestimonialCardWidget;
+$menu = Menu::where('slug', 'main')->published()->first();
+$items = $menu->items()->with('allDescendants')->get();
 
-uses(LayupAssertions::class);
-
-it('satisfies the widget contract', function () {
-    $this->assertWidgetContractValid(TestimonialCardWidget::class);
-});
-
-it('defaults cover all form fields', function () {
-    $this->assertDefaultsCoverFormFields(TestimonialCardWidget::class);
-});
-
-it('renders with default data', function () {
-    $this->assertWidgetRendersWithDefaults(TestimonialCardWidget::class);
-});
+// Now render however you want
+foreach ($items as $item) {
+    // $item->label, $item->getUrl(), $item->children, etc.
+}
 ```
 
-## Checklist for Every Widget
+### Pattern 6: Register a custom Alpine component
 
-Before considering a widget complete, verify each item:
+Override `scripts.blade.php` to extend or replace the `navCraft` Alpine component:
 
-- [ ] `declare(strict_types=1)` at the top of the PHP file
-- [ ] Class extends `BaseWidget`
-- [ ] `getType()` returns kebab-case string
-- [ ] `getType()` value matches the Blade view filename (minus `.blade.php`)
-- [ ] `getLabel()` returns non-empty string
-- [ ] `getIcon()` returns a string starting with `heroicon-`
-- [ ] `getCategory()` returns one of: `content`, `media`, `interactive`, `layout`, `advanced`
-- [ ] `getContentFormSchema()` returns array of Filament components
-- [ ] `getDefaultData()` has a key for every field in `getContentFormSchema()`
-- [ ] `getDefaultData()` does not have keys that are not in `getContentFormSchema()`
-- [ ] `getPreview()` returns a non-empty string for default data
-- [ ] Blade view uses `$data['key'] ?? ''` (null coalescing) for every data access
-- [ ] Blade view includes `id` attribute: `@if(!empty($data['id']))id="{{ $data['id'] }}"@endif`
-- [ ] Blade view includes visibility: `{{ \Crumbls\Layup\View\BaseView::visibilityClasses($data['hide_on'] ?? []) }}`
-- [ ] Blade view includes custom classes: `{{ $data['class'] ?? '' }}`
-- [ ] Blade view includes inline styles: `style="{{ \Crumbls\Layup\View\BaseView::buildInlineStyles($data) }}"`
-- [ ] Blade view includes animations: `{!! \Crumbls\Layup\View\BaseView::animationAttributes($data) !!}`
-- [ ] File uploads use `is_array()` guard in Blade
-- [ ] RichEditor content uses `{!! !!}` (unescaped output)
-- [ ] Plain text uses `{{ }}` (escaped output)
-- [ ] No design/advanced fields in `getContentFormSchema()` (inherited from BaseView)
-- [ ] Widget registered via auto-discovery, config, or plugin
+```blade
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('navCraft', (config = {}) => ({
+        // Your custom implementation
+        openMenu: null,
+        mobileOpen: false,
+        // ... add your own methods
+    }));
+});
+</script>
+```
 
-## Common Mistakes
+## ADA Requirements (Do Not Remove)
 
-1. **Missing default for a form field** -- causes `Undefined array key` in Blade. Run `layup:doctor` to detect.
-2. **Field name in schema does not match key in defaults** -- data entered in the form is lost on save.
-3. **Using `$data['key']` without `?? ''`** -- throws errors when data is incomplete.
-4. **Forgetting `is_array()` check on FileUpload data** -- breaks during editing when Livewire sends temp array.
-5. **Adding Design tab fields to `getContentFormSchema()`** -- duplicates fields, confuses users.
-6. **Using `{{ }}` for RichEditor content** -- escapes HTML, renders raw tags as text.
-7. **Omitting animation attributes** -- entrance animations stop working for the widget.
-8. **Omitting visibility classes** -- responsive hide/show stops working.
-9. **Using a `getType()` that does not match the view filename** -- widget renders blank.
-10. **Forgetting to register the widget** -- widget type is unknown, pages using it render nothing.
+When customizing views, these ARIA attributes and patterns are **required** for WCAG 2.1 AA compliance. Removing them will break accessibility:
+
+### On the `<nav>` element:
+- `aria-label="..."` -- descriptive name for the navigation
+- `role="navigation"` -- landmark role
+
+### On the desktop menu list:
+- `role="menubar"` on the `<ul>`
+
+### On each `<li>`:
+- `role="none"` -- removes implicit list item role
+
+### On links and buttons:
+- `role="menuitem"` -- identifies as a menu item
+- `aria-current="page"` -- on the link matching current URL
+
+### On items with submenus:
+- `aria-haspopup="true"` -- indicates a popup will appear
+- `:aria-expanded="..."` -- dynamic true/false via Alpine
+- `aria-controls="panel-id"` -- links button to its panel
+
+### On dropdown panels:
+- `role="menu"` and `aria-labelledby="trigger-id"` for regular submenus
+- `role="region"` and `aria-label="..."` for mega menu panels
+- `@keydown.escape.prevent` -- close on Escape and return focus
+
+### On external links:
+- `target="_blank"` and `rel="noopener noreferrer"`
+- `<span class="sr-only">(opens in new window)</span>`
+
+### On mobile:
+- Hamburger: `aria-expanded`, `aria-controls`, `aria-label`
+- Mobile menu: `role="menu"` with `aria-label`
+
+### Focus management:
+- All interactive elements must have visible focus indicators (`focus:outline-none focus:ring-2 focus:ring-*`)
+- Escape closes dropdowns and returns focus to the trigger
+- Arrow-down opens dropdown and focuses first item
+
+## Testing Custom Menus
+
+After customizing, verify:
+
+1. **Keyboard navigation** -- Tab through all items, Enter/Space to toggle dropdowns, Escape to close
+2. **Screen reader** -- VoiceOver/NVDA announces navigation landmark, menu structure, expanded state
+3. **Mobile** -- Hamburger toggles, accordion expands, mega content renders
+4. **Dark mode** -- All text/backgrounds have dark: variants
+5. **Focus indicators** -- Visible ring on every focusable element
+6. **Current page** -- `aria-current="page"` appears on the matching link
+7. **External links** -- "(opens in new window)" announced by screen reader
+
+Run automated checks:
+```bash
+# Lighthouse
+npx lighthouse http://localhost:8000 --only-categories=accessibility
+
+# axe-core
+npx @axe-core/cli http://localhost:8000
+```
+
+## Checklist for Custom Menu Views
+
+- [ ] `<nav>` has `aria-label` and `role="navigation"`
+- [ ] Desktop `<ul>` has `role="menubar"`
+- [ ] Every `<li>` has `role="none"`
+- [ ] Every `<a>` and `<button>` inside has `role="menuitem"`
+- [ ] Items with children have `aria-haspopup="true"` and dynamic `aria-expanded`
+- [ ] Dropdown panels have `role="menu"` or `role="region"` with labeling
+- [ ] Current page link has `aria-current="page"`
+- [ ] External links have `target="_blank"`, `rel="noopener noreferrer"`, and sr-only text
+- [ ] Hamburger has `aria-expanded`, `aria-controls`, and `aria-label`
+- [ ] Escape key closes dropdowns and returns focus
+- [ ] All interactive elements have visible focus indicators
+- [ ] Mobile menu is fully navigable by keyboard
+- [ ] Dark mode classes present on all color utilities
+- [ ] `@navCraftScripts` is included on the page
+- [ ] `x-data="navCraft(...)"` is on the `<nav>` element
+- [ ] `x-cloak` is on all hidden panels to prevent flash

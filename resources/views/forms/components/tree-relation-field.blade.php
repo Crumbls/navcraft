@@ -46,6 +46,8 @@
         x-data="ncTreeBuilder({
             componentKey: @js($getKey()),
             initialItems: @js($initialItems),
+            typeLabels: @js($typeLabels),
+            supportsChildren: @js($supportsChildren),
         })"
         x-effect="$el.querySelector('.nc-tree-root').innerHTML = renderTree(); initSortables();"
     >
@@ -81,10 +83,12 @@
         <div style="display:none !important; position:absolute; overflow:hidden; width:0; height:0;">
             {{ $getAction('editItem') }}
             {{ $getAction('addItem') }}
+            {{ $getAction('addChildItem') }}
             {{ $getAction('deleteItem') }}
             {{ $getAction('duplicateItem') }}
             {{ $getAction('reorderItems') }}
             {{ $getAction('renameItem') }}
+            {{ $getAction('moveItem') }}
         </div>
     </div>
 
@@ -94,8 +98,8 @@
             componentKey: config.componentKey,
             items: config.initialItems || [],
 
-            typeLabels: { url: 'URL', route: 'Route', mega: 'Mega Menu' },
-            supportsChildren: ['url', 'route'],
+            typeLabels: config.typeLabels || { url: 'URL', route: 'Route', mega: 'Mega Menu' },
+            supportsChildren: config.supportsChildren || ['url', 'route'],
 
             collapsed: {},
             editingId: null,
@@ -160,7 +164,15 @@
                     ? `<span style='font-size:0.625rem; color:var(--gray-400); margin-left:0.25rem;'>(${item.children.length})</span>`
                     : '';
 
-                return `<div class='nc-tree-item${dimmed}' data-id='${item.id}' data-type='${item.type}'><div class='fi-fo-repeater-item'><div class='fi-fo-repeater-item-header'><button type='button' class='nc-tree-handle'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' style='width:1.25rem; height:1.25rem;'><path stroke-linecap='round' stroke-linejoin='round' d='M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5' /></svg></button>${collapseBtn}<span class='fi-fo-repeater-item-header-label' data-action='inline-edit' data-id='${item.id}'>${escapedLabel}</span>${childCount}<span class='nc-tree-type-badge nc-tree-type-badge--${item.type}'>${typeLabel}</span><div class='nc-tree-actions'><button type='button' class='nc-tree-action-btn' data-action='edit' data-id='${item.id}' title='Edit'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10' /></svg></button><button type='button' class='nc-tree-action-btn' data-action='duplicate' data-id='${item.id}' title='Duplicate'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75' /></svg></button><button type='button' class='nc-tree-action-btn nc-tree-action-btn--danger' data-action='delete' data-id='${item.id}' title='Delete'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0' /></svg></button></div></div></div>${childrenBlock}</div>`;
+                const addChildBtn = canHaveChildren
+                    ? `<button type='button' class='nc-tree-action-btn' data-action='add-child' data-id='${item.id}' title='Add child'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='M12 4.5v15m7.5-7.5h-15' /></svg></button>`
+                    : '';
+
+                const moveUpBtn = `<button type='button' class='nc-tree-action-btn' data-action='move-up' data-id='${item.id}' title='Move up'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m4.5 15.75 7.5-7.5 7.5 7.5' /></svg></button>`;
+
+                const moveDownBtn = `<button type='button' class='nc-tree-action-btn' data-action='move-down' data-id='${item.id}' title='Move down'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5' /></svg></button>`;
+
+                return `<div class='nc-tree-item${dimmed}' data-id='${item.id}' data-type='${item.type}'><div class='fi-fo-repeater-item'><div class='fi-fo-repeater-item-header'><button type='button' class='nc-tree-handle'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' style='width:1.25rem; height:1.25rem;'><path stroke-linecap='round' stroke-linejoin='round' d='M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5' /></svg></button>${collapseBtn}<span class='fi-fo-repeater-item-header-label' data-action='inline-edit' data-id='${item.id}'>${escapedLabel}</span>${childCount}<span class='nc-tree-type-badge nc-tree-type-badge--${item.type}'>${typeLabel}</span><div class='nc-tree-actions'>${moveUpBtn}${moveDownBtn}<button type='button' class='nc-tree-action-btn' data-action='edit' data-id='${item.id}' title='Edit'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10' /></svg></button>${addChildBtn}<button type='button' class='nc-tree-action-btn' data-action='duplicate' data-id='${item.id}' title='Duplicate'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75' /></svg></button><button type='button' class='nc-tree-action-btn nc-tree-action-btn--danger' data-action='delete' data-id='${item.id}' title='Delete'><svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' d='m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0' /></svg></button></div></div></div>${childrenBlock}</div>`;
             },
 
             renderTree() {
@@ -288,6 +300,18 @@
                 return null;
             },
 
+            moveItem(id, direction) {
+                const parent = this.findParentArray(this.items, id);
+                if (!parent) return;
+                const index = parent.findIndex(item => item.id === id);
+                if (index === -1) return;
+                const swapIndex = direction === 'up' ? index - 1 : index + 1;
+                if (swapIndex < 0 || swapIndex >= parent.length) return;
+                [parent[index], parent[swapIndex]] = [parent[swapIndex], parent[index]];
+                this.pushHistory();
+                this.persistReorder();
+            },
+
             handleAction(e) {
                 const btn = e.target.closest('[data-action]');
                 if (!btn) return;
@@ -297,6 +321,9 @@
                 if (action === 'edit') $wire.mountAction('editItem', { id }, { schemaComponent: this.componentKey });
                 if (action === 'delete') $wire.mountAction('deleteItem', { id }, { schemaComponent: this.componentKey });
                 if (action === 'duplicate') $wire.mountAction('duplicateItem', { id }, { schemaComponent: this.componentKey });
+                if (action === 'add-child') $wire.mountAction('addChildItem', { parentId: id }, { schemaComponent: this.componentKey });
+                if (action === 'move-up') this.moveItem(id, 'up');
+                if (action === 'move-down') this.moveItem(id, 'down');
                 if (action === 'collapse') this.toggleCollapse(id);
             },
 
@@ -347,6 +374,18 @@
                     const label = params.label ?? params[0]?.label;
                     const item = this.findItem(this.items, id);
                     if (item && label) item.label = label;
+                });
+
+                Livewire.on('nc-tree-item-child-added', (params) => {
+                    const parentId = params.parentId ?? params[0]?.parentId;
+                    const newItem = params.item ?? params[0]?.item;
+                    if (!parentId || !newItem) return;
+                    const parent = this.findItem(this.items, parentId);
+                    if (parent) {
+                        if (!parent.children) parent.children = [];
+                        parent.children.push(newItem);
+                        this.pushHistory();
+                    }
                 });
 
                 this.$nextTick(() => { this.initSortables(); });

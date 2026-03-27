@@ -30,10 +30,12 @@ class TreeRelationField extends Field
         $this->registerActions([
             $this->editItemAction(),
             $this->addItemAction(),
+            $this->addChildItemAction(),
             $this->deleteItemAction(),
             $this->duplicateItemAction(),
             $this->reorderItemsAction(),
             $this->renameItemAction(),
+            $this->moveItemAction(),
         ]);
 
         $this->dehydrated(false);
@@ -52,6 +54,14 @@ class TreeRelationField extends Field
             $data['initialItems'] = [];
             $data['maxId'] = 0;
         }
+
+        $itemTypes = config('navcraft.item_types', []);
+        $data['typeLabels'] = collect($itemTypes)->mapWithKeys(
+            fn (array $config, string $key): array => [$key => $config['label'] ?? $key]
+        )->all();
+        $data['supportsChildren'] = collect($itemTypes)->filter(
+            fn (array $config): bool => $config['supports_children'] ?? true
+        )->keys()->all();
 
         return $data;
     }
@@ -112,11 +122,11 @@ class TreeRelationField extends Field
 
                                 Select::make('type')
                                     ->label('Type')
-                                    ->options([
-                                        'url' => 'URL',
-                                        'route' => 'Route',
-                                        'mega' => 'Mega Menu',
-                                    ])
+                                    ->options(
+                                        collect(config('navcraft.item_types', []))
+                                            ->mapWithKeys(fn (array $c, string $k): array => [$k => $c['label'] ?? $k])
+                                            ->all()
+                                    )
                                     ->default('url')
                                     ->required()
                                     ->live(),
@@ -255,6 +265,92 @@ class TreeRelationField extends Field
                     'icon' => '',
                     'children' => [],
                 ]);
+            });
+    }
+
+    public function addChildItemAction(): Action
+    {
+        return Action::make('addChildItem')
+            ->label('Add Child Item')
+            ->action(function (array $arguments): void {
+                $parentId = (int) ($arguments['parentId'] ?? 0);
+
+                if (! $parentId) {
+                    return;
+                }
+
+                $parent = MenuItem::find($parentId);
+
+                if (! $parent) {
+                    return;
+                }
+
+                $maxOrder = MenuItem::where('parent_id', $parentId)->max('order') ?? -1;
+
+                $item = MenuItem::create([
+                    'menu_id' => $parent->menu_id,
+                    'parent_id' => $parentId,
+                    'label' => 'New Child',
+                    'type' => 'url',
+                    'order' => $maxOrder + 1,
+                ]);
+
+                $this->getLivewire()->dispatch('nc-tree-item-child-added', parentId: $parentId, item: [
+                    'id' => $item->id,
+                    'label' => $item->label,
+                    'type' => $item->type,
+                    'url' => '',
+                    'route_name' => '',
+                    'route_params' => [],
+                    'mega_content' => ['rows' => []],
+                    'target' => '_self',
+                    'css_class' => '',
+                    'icon' => '',
+                    'children' => [],
+                ]);
+            });
+    }
+
+    public function moveItemAction(): Action
+    {
+        return Action::make('moveItem')
+            ->action(function (array $arguments): void {
+                $id = (int) ($arguments['id'] ?? 0);
+                $direction = $arguments['direction'] ?? null;
+
+                if (! $id || ! in_array($direction, ['up', 'down'])) {
+                    return;
+                }
+
+                $item = MenuItem::find($id);
+
+                if (! $item) {
+                    return;
+                }
+
+                $siblings = MenuItem::where('menu_id', $item->menu_id)
+                    ->where('parent_id', $item->parent_id)
+                    ->orderBy('order')
+                    ->get();
+
+                $index = $siblings->search(fn (MenuItem $s): bool => $s->id === $item->id);
+
+                if ($index === false) {
+                    return;
+                }
+
+                $swapIndex = $direction === 'up' ? $index - 1 : $index + 1;
+
+                if ($swapIndex < 0 || $swapIndex >= $siblings->count()) {
+                    return;
+                }
+
+                $swapItem = $siblings[$swapIndex];
+                $tempOrder = $item->order;
+                $item->update(['order' => $swapItem->order]);
+                $swapItem->update(['order' => $tempOrder]);
+
+                $this->getLivewire()->dispatch('nc-tree-reorder-complete');
             });
     }
 

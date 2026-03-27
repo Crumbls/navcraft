@@ -99,6 +99,7 @@
             class="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 {{ $themeClasses }} {{ $activeClasses }} {{ $isTopLevel ? 'text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' }}"
             @if($isCurrent) aria-current="page" @endif
             @if($isExternal) target="_blank" rel="noopener noreferrer" @endif
+            @click="navigate('{{ $item->getUrl() }}', '{{ addslashes($item->label) }}', '{{ $itemId }}')"
         >
             @if($icon)
                 <x-dynamic-component :component="$icon" class="w-4 h-4" aria-hidden="true" />
