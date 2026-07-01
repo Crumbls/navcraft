@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Crumbls\NavCraft\Forms\Components;
 
-use Closure;
 use Crumbls\Layup\Forms\Components\LayupBuilder;
 use Crumbls\NavCraft\Models\MenuItem;
 use Filament\Actions\Action;
@@ -12,9 +11,9 @@ use Filament\Forms\Components\Field;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Tabs;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +104,10 @@ class TreeRelationField extends Field
                     'route_name' => $item->route ?? '',
                     'route_params' => $item->settings['route_params'] ?? [],
                     'mega_content' => $item->content ?? ['rows' => []],
+                    'featured_title' => $item->settings['featured']['title'] ?? '',
+                    'featured_body' => $item->settings['featured']['body'] ?? '',
+                    'featured_cta_label' => $item->settings['featured']['cta_label'] ?? '',
+                    'featured_cta_url' => $item->settings['featured']['cta_url'] ?? '',
                     'open_in_new_tab' => ($item->target ?? '_self') === '_blank',
                     'css_class' => $item->css_class ?? '',
                     'icon' => $item->icon ?? '',
@@ -180,6 +183,26 @@ class TreeRelationField extends Field
                                     ->label('Mega Menu Content')
                                     ->columnSpanFull()
                                     ->visible(fn (Get $get): bool => $get('type') === 'mega'),
+
+                                TextInput::make('featured_title')
+                                    ->label('Featured card title')
+                                    ->helperText('Optional. Shown alongside the auto-generated link columns when no Layup content is set.')
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega'),
+
+                                TextInput::make('featured_body')
+                                    ->label('Featured card text')
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega' && filled($get('featured_title'))),
+
+                                TextInput::make('featured_cta_label')
+                                    ->label('Featured button label')
+                                    ->placeholder('Learn more')
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega' && filled($get('featured_title'))),
+
+                                TextInput::make('featured_cta_url')
+                                    ->label('Featured button URL')
+                                    ->placeholder('/about or https://example.com')
+                                    ->regex('/^(\/|https?:\/\/)/')
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega' && filled($get('featured_title'))),
                             ]),
 
                         Tabs\Tab::make('Appearance')
@@ -220,6 +243,12 @@ class TreeRelationField extends Field
                     'icon' => $data['icon'] ?? null,
                     'settings' => array_merge($item->settings ?? [], [
                         'route_params' => $data['route_params'] ?? [],
+                        'featured' => ($data['type'] === 'mega' && filled($data['featured_title'] ?? null)) ? [
+                            'title' => $data['featured_title'],
+                            'body' => $data['featured_body'] ?? null,
+                            'cta_label' => $data['featured_cta_label'] ?? null,
+                            'cta_url' => $data['featured_cta_url'] ?? null,
+                        ] : null,
                     ]),
                 ]);
 

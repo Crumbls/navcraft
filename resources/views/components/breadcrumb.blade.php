@@ -6,16 +6,16 @@
                 <li class="flex items-center gap-1.5">
                     <a
                         href="{{ $crumb->getUrl() }}"
-                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
+                        class="text-[var(--nc-fg-muted)] hover:text-[var(--nc-fg-strong)] transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)] rounded"
                     >
                         {{ $crumb->label }}
                     </a>
-                    <svg aria-hidden="true" class="w-3.5 h-3.5 text-gray-400 dark:text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <svg aria-hidden="true" class="w-3.5 h-3.5 text-[var(--nc-fg-muted)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                     </svg>
                 </li>
             @else
-                <li aria-current="page" class="text-gray-900 font-medium dark:text-white">
+                <li aria-current="page" class="text-[var(--nc-fg-strong)] font-medium">
                     {{ $crumb->label }}
                 </li>
             @endif

@@ -117,11 +117,75 @@ Store settings in the menu's `settings` JSON column to configure behavior:
 
 ```php
 $menu->update(['settings' => [
-    'sticky' => true,         // Sticky nav on scroll
-    'theme' => 'pill',        // 'minimal', 'bordered', 'pill', 'underline'
-    'hover_mode' => 'hover',  // 'click' or 'hover' for desktop dropdowns
+    'sticky' => true,               // Sticky nav on scroll
+    'theme' => 'pill',              // 'minimal', 'bordered', 'pill', 'underline'
+    'hover_mode' => 'hover',        // 'click' or 'hover' for desktop dropdowns
+    'nav_pattern' => 'disclosure',  // 'disclosure' (site nav, default) or 'menubar'
 ]]);
 ```
+
+These are also editable per menu in the Filament admin under **Display**.
+
+### Theming (CSS variables)
+
+Every color in the front-end views is driven by a CSS custom property, so you
+can rebrand the whole menu **without publishing or forking the Blade views**.
+Override any of these in your own stylesheet at `:root` (your unlayered rules
+win over NavCraft's `@layer` defaults):
+
+```css
+:root {
+    --nc-fg: #374151;         /* default text */
+    --nc-fg-strong: #111827;  /* hover / heading-strong text */
+    --nc-fg-muted: #6b7280;   /* secondary text */
+    --nc-heading: #6b7280;    /* mega-menu column headings */
+    --nc-accent: #2563eb;     /* active item, chevron, CTA */
+    --nc-bg: #ffffff;         /* nav bar background */
+    --nc-panel: #ffffff;      /* dropdown / mega-panel background */
+    --nc-panel-soft: #f9fafb; /* featured-card background */
+    --nc-border: #e5e7eb;     /* borders */
+    --nc-hover-bg: #f9fafb;   /* item hover background */
+    --nc-ring: rgb(59 130 246 / 0.5); /* focus ring */
+}
+```
+
+Dark mode is handled by the same variables under `.dark`.
+
+### Tailwind: scanning NavCraft's classes
+
+NavCraft's views use Tailwind utilities. Tell Tailwind to scan them by adding
+this to your CSS entrypoint (unless you publish the views into your app):
+
+```css
+@source '../../vendor/crumbls/navcraft/resources/views';
+```
+
+### Navigation pattern (accessibility)
+
+`nav_pattern` selects the ARIA pattern:
+
+- **`disclosure`** (default) — the WAI-ARIA APG pattern for site navigation:
+  top-level buttons expose `aria-expanded` / `aria-controls`, no `menubar`
+  roles. Recommended for website headers.
+- **`menubar`** — application-style `role="menubar"` / `menuitem`. Use only for
+  true app menus, where users expect arrow-key roving focus.
+
+### Featured card
+
+Any **mega** item can show a featured card next to its auto-generated link
+columns — set a title (and optional body / CTA) under the item's **Content**
+tab, or in code via `settings.featured`:
+
+```php
+$item->update(['settings' => ['featured' => [
+    'title' => 'Free admission, always',
+    'body' => 'Step into the story of your town.',
+    'cta_label' => 'Plan a visit',
+    'cta_url' => '/visit',
+]]]);
+```
+
+When the item has Layup content, that renders instead.
 
 ### Theme Presets
 
@@ -137,7 +201,8 @@ $menu->update(['settings' => [
 The rendered navigation follows WCAG 2.1 AA:
 
 - `<nav>` landmark with `aria-label`
-- `<ul role="menubar">` / `<li role="none">` / `role="menuitem"` structure
+- Disclosure pattern by default (plain list + buttons); optional `menubar` /
+  `menuitem` structure via `nav_pattern` for app-style menus
 - `aria-haspopup="true"` and dynamic `aria-expanded` on parent items
 - `aria-current="page"` on the link matching the current URL
 - Active trail highlighting through the entire parent chain
