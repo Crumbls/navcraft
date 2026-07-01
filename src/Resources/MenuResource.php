@@ -14,6 +14,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -51,35 +52,80 @@ class MenuResource extends Resource
             ->components(static::getFormSchema($schema));
     }
 
-	public static function getFormSchema(Schema $schema) : array {
-		return [
-			Section::make('info')
-			->schema([
+    public static function getFormSchema(Schema $schema): array
+    {
+        return [
+            Section::make('info')
+                ->schema([
 
-				TextInput::make('name')
-					->required()
-					->maxLength(255)
-					->live(onBlur: true)
-					->afterStateUpdated(fn ($state, callable $set) => $set('slug', Str::slug($state))),
+                    TextInput::make('name')
+                        ->required()
+                        ->maxLength(255)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn ($state, callable $set) => $set('slug', Str::slug($state))),
 
-				TextInput::make('slug')
-					->required()
-					->maxLength(255)
-					->unique(ignoreRecord: true),
+                    TextInput::make('slug')
+                        ->required()
+                        ->maxLength(255)
+                        ->unique(ignoreRecord: true),
 
-				TextInput::make('description')
-					->maxLength(500),
+                    TextInput::make('description')
+                        ->maxLength(500),
 
-				Select::make('status')
-					->options([
-						'draft' => 'Draft',
-						'published' => 'Published',
-					])
-					->default('draft')
-					->required()
-			])
-		];
-	}
+                    Select::make('status')
+                        ->options([
+                            'draft' => 'Draft',
+                            'published' => 'Published',
+                        ])
+                        ->default('draft')
+                        ->required(),
+                ]),
+
+            Section::make('Display')
+                ->description('Controls how this menu renders on the front end.')
+                ->schema([
+                    Select::make('settings.nav_pattern')
+                        ->label('Navigation pattern')
+                        ->options([
+                            'disclosure' => 'Disclosure (recommended for site navigation)',
+                            'menubar' => 'Menubar (application-style)',
+                        ])
+                        ->default('disclosure')
+                        ->helperText('Disclosure is the WAI-ARIA pattern for site navigation. Use menubar only for app-style menus.'),
+
+                    Select::make('settings.hover_mode')
+                        ->label('Open on')
+                        ->options([
+                            'click' => 'Click / keyboard',
+                            'hover' => 'Hover',
+                        ])
+                        ->default('click'),
+
+                    Select::make('settings.theme')
+                        ->label('Theme preset')
+                        ->options([
+                            'minimal' => 'Minimal',
+                            'bordered' => 'Bordered',
+                            'pill' => 'Pill',
+                            'underline' => 'Underline',
+                        ])
+                        ->default('minimal'),
+
+                    Select::make('settings.breakpoint')
+                        ->label('Desktop breakpoint')
+                        ->options([
+                            'sm' => 'sm',
+                            'md' => 'md',
+                            'lg' => 'lg',
+                            'xl' => 'xl',
+                        ])
+                        ->default('lg'),
+
+                    Toggle::make('settings.sticky')
+                        ->label('Sticky to top of viewport'),
+                ]),
+        ];
+    }
 
     public static function table(Table $table): Table
     {
@@ -148,7 +194,7 @@ class MenuResource extends Resource
     public static function getRelations(): array
     {
         return [
-//            MenuItemsRelationManager::class,
+            //            MenuItemsRelationManager::class,
         ];
     }
 

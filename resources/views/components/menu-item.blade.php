@@ -1,4 +1,7 @@
 @php
+    $navPattern = $navPattern ?? 'disclosure';
+    $isMenubar = $navPattern === 'menubar';
+
     $hasChildren = $item->children->isNotEmpty();
     $isMega = $item->type === 'mega';
     $hasSubmenu = $hasChildren || $isMega;
@@ -11,36 +14,21 @@
     $isTopLevel = $depth === 0;
     $icon = $item->icon ?? null;
     $cssClass = $item->css_class ?? '';
-    $theme = $theme ?? 'minimal';
 
-    $themeClasses = match($theme) {
-        'bordered' => $isTopLevel
-            ? 'border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
-            : '',
-        'pill' => $isTopLevel
-            ? 'hover:bg-gray-100 dark:hover:bg-gray-800'
-            : '',
-        'underline' => $isTopLevel
-            ? 'border-b-2 border-transparent hover:border-gray-900 dark:hover:border-white rounded-none'
-            : '',
-        default => '',
-    };
+    $liRole = $isMenubar ? 'none' : null;
+    $itemRole = $isMenubar ? 'menuitem' : null;
+    $submenuRole = $isMenubar ? 'menu' : null;
 
-    $activeClasses = ($isCurrent || $isOnTrail) ? match($theme) {
-        'underline' => 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400',
-        'pill' => 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-        'bordered' => 'border-blue-200 bg-blue-50/50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-        default => 'text-blue-600 dark:text-blue-400',
-    } : '';
+    $activeClasses = ($isCurrent || $isOnTrail) ? 'text-[var(--nc-accent)]' : '';
 @endphp
 
-<li role="none" class="static {{ $cssClass }}">
+<li @if($liRole) role="{{ $liRole }}" @endif class="static {{ $cssClass }}">
     @if($hasSubmenu)
         <button
             type="button"
-            role="menuitem"
+            @if($itemRole) role="{{ $itemRole }}" @endif
             id="{{ $itemId }}"
-            class="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 {{ $themeClasses }} {{ $activeClasses }} {{ $isTopLevel ? 'text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white' : 'w-full text-left text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' }}"
+            class="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-semibold rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)] {{ $activeClasses }} {{ $isTopLevel ? 'text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)]' : 'w-full text-left text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)] hover:bg-[var(--nc-hover-bg)]' }}"
             :aria-expanded="(openMenu === '{{ $itemId }}').toString()"
             aria-haspopup="true"
             aria-controls="{{ $panelId }}"
@@ -54,7 +42,7 @@
                 <x-dynamic-component :component="$icon" class="w-4 h-4" aria-hidden="true" />
             @endif
             <span>{{ $item->label }}</span>
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3 transition-transform" :class="openMenu === '{{ $itemId }}' ? 'rotate-180' : ''">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5 text-[var(--nc-accent)] transition-transform" :class="openMenu === '{{ $itemId }}' ? 'rotate-180' : ''">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
         </button>
@@ -64,10 +52,12 @@
                 'item' => $item,
                 'panelId' => $panelId,
                 'parentId' => $itemId,
+                'navPattern' => $navPattern,
+                'depth' => $depth,
             ])
         @else
             <ul
-                role="menu"
+                @if($submenuRole) role="{{ $submenuRole }}" @endif
                 id="{{ $panelId }}"
                 aria-labelledby="{{ $itemId }}"
                 x-show="openMenu === '{{ $itemId }}'"
@@ -78,7 +68,8 @@
                 x-transition:leave-start="opacity-100 scale-100"
                 x-transition:leave-end="opacity-0 scale-95"
                 x-cloak
-                class="{{ $isTopLevel ? 'absolute left-0 top-full mt-1 w-max min-w-[12rem] max-w-[20rem]' : 'pl-4 mt-1' }} bg-white rounded-lg shadow-lg ring-1 ring-gray-950/5 py-1 dark:bg-gray-900 dark:ring-white/10"
+                style="z-index: {{ 50 + ($depth * 10) }}"
+                class="{{ $isTopLevel ? 'absolute left-0 top-full mt-1 w-max min-w-[12rem] max-w-[20rem]' : 'relative pl-4 mt-1' }} bg-[var(--nc-panel)] rounded-lg shadow-xl border border-[var(--nc-border)] py-1"
                 @mouseenter="hoverOpen('{{ $itemId }}')"
                 @mouseleave="hoverClose('{{ $itemId }}')"
                 @keydown.escape.prevent="close('{{ $itemId }}'); focusTrigger('{{ $itemId }}')"
@@ -87,7 +78,8 @@
                     @include('navcraft::components.menu-item', [
                         'item' => $child,
                         'depth' => $depth + 1,
-                        'theme' => $theme,
+                        'theme' => $theme ?? 'minimal',
+                        'navPattern' => $navPattern,
                     ])
                 @endforeach
             </ul>
@@ -95,8 +87,8 @@
     @else
         <a
             href="{{ $item->getUrl() }}"
-            role="menuitem"
-            class="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 {{ $themeClasses }} {{ $activeClasses }} {{ $isTopLevel ? 'text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' }}"
+            @if($itemRole) role="{{ $itemRole }}" @endif
+            class="flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-semibold rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)] {{ $activeClasses }} {{ $isTopLevel ? 'text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)]' : 'text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)] hover:bg-[var(--nc-hover-bg)]' }}"
             @if($isCurrent) aria-current="page" @endif
             @if($isExternal) target="_blank" rel="noopener noreferrer" @endif
             @click="navigate('{{ $item->getUrl() }}', '{{ addslashes($item->label) }}', '{{ $itemId }}')"

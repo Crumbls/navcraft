@@ -1,3 +1,5 @@
+@include('navcraft::components.theme-style')
+
 @if(class_exists(\Crumbls\Layup\LayupServiceProvider::class))
     @layupScripts
 @endif

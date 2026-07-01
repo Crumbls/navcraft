@@ -42,12 +42,11 @@ it('renders nav html with aria-label', function () {
 
     expect($html)->toContain('aria-label="Test Navigation"')
         ->and($html)->toContain('role="navigation"')
-        ->and($html)->toContain('role="menubar"')
         ->and($html)->toContain('Home');
 });
 
-it('renders links with role menuitem', function () {
-    $menu = Menu::factory()->published()->create(['slug' => 'links']);
+it('uses the disclosure pattern by default (no menubar roles)', function () {
+    $menu = Menu::factory()->published()->create(['slug' => 'disclosure']);
 
     MenuItem::factory()->create([
         'menu_id' => $menu->id,
@@ -57,11 +56,33 @@ it('renders links with role menuitem', function () {
         'order' => 0,
     ]);
 
-    $html = MenuRenderer::fromSlug('links')->toHtml();
+    $html = MenuRenderer::fromSlug('disclosure')->toHtml();
 
-    expect($html)->toContain('role="menuitem"')
+    expect($html)->not->toContain('role="menubar"')
+        ->and($html)->not->toContain('role="menuitem"')
         ->and($html)->toContain('href="/about"')
         ->and($html)->toContain('About');
+});
+
+it('renders menubar roles when nav_pattern is menubar', function () {
+    $menu = Menu::factory()->published()->create([
+        'slug' => 'menubar',
+        'settings' => ['nav_pattern' => 'menubar'],
+    ]);
+
+    MenuItem::factory()->create([
+        'menu_id' => $menu->id,
+        'label' => 'About',
+        'type' => 'url',
+        'url' => '/about',
+        'order' => 0,
+    ]);
+
+    $html = MenuRenderer::fromSlug('menubar')->toHtml();
+
+    expect($html)->toContain('role="menubar"')
+        ->and($html)->toContain('role="menuitem"')
+        ->and($html)->toContain('href="/about"');
 });
 
 it('renders nested items with aria-haspopup', function () {
@@ -113,5 +134,53 @@ it('renders empty menu without errors', function () {
 
     $html = MenuRenderer::fromSlug('empty')->toHtml();
 
-    expect($html)->toContain('role="menubar"');
+    expect($html)->toContain('role="navigation"');
+});
+
+it('renders a featured card on a mega item from settings', function () {
+    $menu = Menu::factory()->published()->create(['slug' => 'featured']);
+
+    $section = MenuItem::factory()->create([
+        'menu_id' => $menu->id,
+        'label' => 'Visit',
+        'type' => 'mega',
+        'url' => '/visit',
+        'order' => 0,
+        'settings' => ['featured' => [
+            'title' => 'Free admission, always',
+            'body' => 'Step into the story.',
+            'cta_label' => 'Plan a visit',
+            'cta_url' => '/plan',
+        ]],
+    ]);
+
+    MenuItem::factory()->childOf($section)->create([
+        'label' => 'Hours',
+        'type' => 'url',
+        'url' => '/hours',
+        'order' => 0,
+    ]);
+
+    $html = MenuRenderer::fromSlug('featured')->toHtml();
+
+    expect($html)->toContain('Free admission, always')
+        ->and($html)->toContain('Plan a visit')
+        ->and($html)->toContain('href="/plan"');
+});
+
+it('drives colors through CSS variables', function () {
+    $menu = Menu::factory()->published()->create(['slug' => 'themed']);
+
+    MenuItem::factory()->create([
+        'menu_id' => $menu->id,
+        'label' => 'Home',
+        'type' => 'url',
+        'url' => '/',
+        'order' => 0,
+    ]);
+
+    $html = MenuRenderer::fromSlug('themed')->toHtml();
+
+    expect($html)->toContain('var(--nc-fg)')
+        ->and($html)->toContain('bg-[var(--nc-bg)]');
 });

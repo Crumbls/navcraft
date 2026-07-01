@@ -4,24 +4,28 @@
     $sticky = $settings['sticky'] ?? false;
     $theme = $settings['theme'] ?? 'minimal';
     $hoverMode = $settings['hover_mode'] ?? 'click';
+    $navPattern = $settings['nav_pattern'] ?? 'disclosure';
     $breakpoint = $breakpoint ?? $settings['breakpoint'] ?? config('navcraft.frontend.breakpoint', 'lg');
     $navClass = $navClass ?? '';
 
     $bpShow = "{$breakpoint}:flex";
     $bpHide = "{$breakpoint}:hidden";
+
+    $menubarRole = $navPattern === 'menubar' ? 'menubar' : null;
 @endphp
 
 <nav
     aria-label="{{ $ariaLabel }}"
     role="navigation"
-    class="relative bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700 {{ $sticky ? 'sticky top-0 z-50 shadow-sm backdrop-blur-sm bg-white/95 dark:bg-gray-900/95' : '' }} {{ $navClass }}"
+    class="relative bg-[var(--nc-bg)] text-[var(--nc-fg)] border-b border-[var(--nc-border)] {{ $sticky ? 'sticky top-0 z-50 shadow-sm' : '' }} {{ $navClass }}"
     x-data="navCraft({ hoverMode: '{{ $hoverMode }}', menuId: '{{ $menu->slug }}' })"
     @click.outside="openMenu = null"
     @keydown.escape.window="openMenu ? (openMenu = null) : (mobileOpen = false)"
     data-theme="{{ $theme }}"
+    data-nav-pattern="{{ $navPattern }}"
 >
-    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-14">
+    <div class="relative max-w-7xl mx-auto px-6 md:px-0">
+        <div class="flex items-center justify-between gap-6">
             {{-- Logo slot --}}
             @if(isset($logo))
                 <div class="shrink-0">
@@ -30,12 +34,17 @@
             @endif
 
             {{-- Desktop menu --}}
-            <ul role="menubar" class="hidden {{ $bpShow }} items-center gap-1" aria-label="{{ $ariaLabel }}">
+            <ul
+                @if($menubarRole) role="{{ $menubarRole }}" @endif
+                class="hidden {{ $bpShow }} items-center gap-1"
+                aria-label="{{ $ariaLabel }}"
+            >
                 @foreach($items as $item)
                     @include('navcraft::components.menu-item', [
                         'item' => $item,
                         'depth' => 0,
                         'theme' => $theme,
+                        'navPattern' => $navPattern,
                         'menuSlug' => $menu->slug,
                     ])
                 @endforeach
@@ -58,7 +67,7 @@
             {{-- Mobile hamburger --}}
             <button
                 type="button"
-                class="{{ $bpHide }} p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                class="{{ $bpHide }} p-2 text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)] rounded-md focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)]"
                 @click="mobileOpen = !mobileOpen"
                 :aria-expanded="mobileOpen.toString()"
                 aria-controls="nc-mobile-menu-{{ $menu->id }}"
@@ -81,11 +90,10 @@
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0 -translate-y-4"
         x-cloak
-        class="{{ $bpHide }} border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-        role="menu"
+        class="{{ $bpHide }} border-t border-[var(--nc-border)] bg-[var(--nc-bg)]"
         aria-label="{{ $ariaLabel }} mobile"
     >
-        <ul class="px-4 py-3 space-y-1">
+        <ul class="px-6 py-3 space-y-1">
             @foreach($items as $item)
                 @include('navcraft::components.menu-item-mobile', [
                     'item' => $item,
@@ -96,7 +104,7 @@
 
         {{-- Mobile actions slot --}}
         @if(isset($mobileActions))
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <div class="px-6 py-3 border-t border-[var(--nc-border)]">
                 {{ $mobileActions }}
             </div>
         @endif

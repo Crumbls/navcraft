@@ -40,7 +40,11 @@ class InstallCommand extends Command
         $this->comment('Next steps:');
         $this->line('  1. Register NavCraftPlugin in your Filament panel provider');
         $this->line('  2. Add @navCraftScripts and @navcraft(\'main-navigation\') to your layout');
-        $this->line('  3. Visit the Menus section in your Filament panel');
+        $this->line('  3. Tell Tailwind to scan NavCraft\'s views by adding this to your CSS entrypoint:');
+        $this->line('       @source \'../../vendor/crumbls/navcraft/resources/views\';');
+        $this->line('     (skip this if you publish the views with --tag=navcraft-views)');
+        $this->line('  4. Rebrand by overriding the --nc-* CSS variables (see README "Theming")');
+        $this->line('  5. Visit the Menus section in your Filament panel');
 
         return self::SUCCESS;
     }

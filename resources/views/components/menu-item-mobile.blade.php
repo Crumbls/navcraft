@@ -17,8 +17,7 @@
     @if($hasSubmenu)
         <button
             type="button"
-            role="menuitem"
-            class="flex items-center justify-between w-full gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 {{ ($isCurrent || $isOnTrail) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-200' }}"
+            class="flex items-center justify-between w-full gap-2 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)] {{ ($isCurrent || $isOnTrail) ? 'text-[var(--nc-accent)]' : 'text-[var(--nc-fg)]' }}"
             :aria-expanded="(mobileExpanded === '{{ $itemId }}').toString()"
             @click="mobileExpanded = mobileExpanded === '{{ $itemId }}' ? null : '{{ $itemId }}'"
         >
@@ -41,7 +40,7 @@
             x-transition:leave-end="opacity-0"
             x-cloak
             class="mt-0.5"
-            @if($isMega) role="region" aria-label="{{ $item->label }} menu" @else role="menu" @endif
+            @if($isMega) role="region" aria-label="{{ $item->label }} menu" @endif
         >
             @if($isMega && $hasLayupContent)
                 <div class="px-3 py-2">
@@ -50,13 +49,13 @@
                             echo (new \Crumbls\Layup\Support\LayupContent($megaContent))->toHtml();
                         } catch (\Throwable $e) {
                             if (config('app.debug')) {
-                                echo '<p class="text-sm text-red-500">Layup render error: ' . e($e->getMessage()) . '</p>';
+                                echo '<p class="text-sm text-[var(--nc-accent)]">Layup render error: ' . e($e->getMessage()) . '</p>';
                             }
                         }
                     @endphp
                 </div>
             @elseif($hasChildren)
-                <ul class="space-y-0.5" role="menu">
+                <ul class="space-y-0.5">
                     @foreach($item->children as $child)
                         @include('navcraft::components.menu-item-mobile', [
                             'item' => $child,
@@ -65,14 +64,13 @@
                     @endforeach
                 </ul>
             @elseif($isMega)
-                <p class="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">No content configured.</p>
+                <p class="px-3 py-2 text-xs text-[var(--nc-fg-muted)]">No content configured.</p>
             @endif
         </div>
     @else
         <a
             href="{{ $item->getUrl() }}"
-            role="menuitem"
-            class="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 {{ $isCurrent ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-200 dark:hover:text-white dark:hover:bg-gray-800' }}"
+            class="flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)] {{ $isCurrent ? 'text-[var(--nc-accent)] bg-[var(--nc-hover-bg)]' : 'text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)] hover:bg-[var(--nc-hover-bg)]' }}"
             @if($isCurrent) aria-current="page" @endif
             @if($isExternal) target="_blank" rel="noopener noreferrer" @endif
         >
