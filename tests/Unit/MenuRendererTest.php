@@ -168,6 +168,28 @@ it('renders a featured card on a mega item from settings', function () {
         ->and($html)->toContain('href="/plan"');
 });
 
+it('renders a mega panel link list from content.links', function () {
+    $menu = Menu::factory()->published()->create(['slug' => 'links-panel']);
+
+    MenuItem::factory()->create([
+        'menu_id' => $menu->id,
+        'label' => 'Visit',
+        'type' => 'mega',
+        'url' => '/visit',
+        'order' => 0,
+        'content' => ['links' => [
+            ['label' => 'Hours & Admission', 'url' => '/visit/hours'],
+            ['label' => 'Directions', 'url' => '/visit/directions'],
+        ]],
+    ]);
+
+    $html = MenuRenderer::fromSlug('links-panel')->toHtml();
+
+    expect($html)->toContain('Hours &amp; Admission')
+        ->and($html)->toContain('href="/visit/hours"')
+        ->and($html)->toContain('href="/visit/directions"');
+});
+
 it('drives colors through CSS variables', function () {
     $menu = Menu::factory()->published()->create(['slug' => 'themed']);
 

@@ -1,6 +1,9 @@
 @php
     $hasChildren = $item->children->isNotEmpty();
     $isMega = $item->type === 'mega';
+    $megaContent = $item->content ?? [];
+    $hasLayupContent = ! empty($megaContent['rows']);
+    $megaLinks = collect($megaContent['links'] ?? []);
     $hasSubmenu = $hasChildren || $isMega;
     $itemId = 'nc-mobile-' . $item->id;
     $isCurrent = $item->getUrl() === request()->url();
@@ -9,8 +12,6 @@
     $isExternal = $target === '_blank';
     $icon = $item->icon ?? null;
     $indent = $depth * 0.75;
-    $megaContent = $item->content ?? [];
-    $hasLayupContent = ! empty($megaContent['rows']);
 @endphp
 
 <li role="none" style="{{ $depth > 0 ? "padding-left: {$indent}rem;" : '' }}">
@@ -54,6 +55,16 @@
                         }
                     @endphp
                 </div>
+            @elseif($isMega && $megaLinks->isNotEmpty())
+                <ul class="space-y-0.5">
+                    @foreach($megaLinks as $link)
+                        <li>
+                            <a href="{{ $link['url'] ?? '#' }}" class="block px-3 py-2 text-sm text-[var(--nc-fg)] hover:text-[var(--nc-fg-strong)] hover:bg-[var(--nc-hover-bg)] rounded transition">
+                                {{ $link['label'] ?? '' }}
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
             @elseif($hasChildren)
                 <ul class="space-y-0.5">
                     @foreach($item->children as $child)
