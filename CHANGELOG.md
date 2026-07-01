@@ -5,7 +5,7 @@ All notable changes to NavCraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-07-01
 
 ### Added
 
@@ -44,13 +44,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cached HTML rendering (1 hour TTL, timestamp-based key)
 - Full ADA/WCAG 2.1 AA compliance:
   - `<nav>` landmark with `aria-label`
-  - `role="menubar"` / `role="menuitem"` / `role="none"` structure
+  - Disclosure pattern by default; optional `menubar` / `menuitem` / `none` structure via `nav_pattern`
   - `aria-haspopup`, dynamic `aria-expanded`, `aria-controls`
   - `aria-current="page"` on matching URLs
   - `role="region"` with `aria-label` on mega panels
   - Keyboard: Tab, Enter/Space toggle, Escape close, Arrow keys
   - External links: `target="_blank"`, `rel="noopener"`, sr-only text
   - Visible focus indicators on all interactive elements
+
+#### Theming & Customization
+- CSS-variable theming: every front-end color is driven by `--nc-*` custom properties, with light/dark defaults shipped in `theme-style.blade.php` inside `@layer navcraft` so consumer `:root` overrides win — rebrand the whole menu without publishing or editing views
+- `nav_pattern` setting: WAI-ARIA disclosure pattern (default, recommended for site navigation) or `menubar` (opt-in for app-style menus)
+- Featured cards on mega items via `settings.featured` (title, body, CTA), rendered beside the auto-generated link columns and editable in the item's Content tab; Layup content still takes precedence
+- Menu Display settings exposed in the admin: navigation pattern, open-on hover/click, theme preset, breakpoint, sticky
+- Progressive, depth-scaled `z-index` on panels so nested menus stack correctly
+- README sections for Theming, Tailwind `@source`, navigation pattern, and featured cards; `navcraft:install` prints the Tailwind `@source` note
 
 #### Models
 - `Menu` model with name, slug, description, status, settings (JSON)
@@ -68,10 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NavCraftPlugin` for Filament panel registration
 - `NavCraftServiceProvider` with views, migrations, config, Blade directives and components
 - `MenuRenderer` service class with caching
-- 52 Pest tests covering models, tree building, rendering, cloning, and service provider
+- 55 Pest tests covering models, tree building, rendering, theming, cloning, and service provider
 - Pint and Rector for code quality
 
-## [0.1.0] - 2026-03-23
+## [0.0.1] - 2026-03-23
 
 ### Added
 - Initial development release
