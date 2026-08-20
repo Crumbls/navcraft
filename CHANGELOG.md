@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-19
+
 ### Added
 - Mega panels can be authored as a reorderable **link list** directly in the item's slide-over, via a "Panel content" toggle (Link list / Page builder). Links are stored on the item as `content.links` (`[{label, url}]`) and rendered in both the desktop and mobile panels.
+- Dependabot checks Composer dependencies weekly and opens update pull requests.
+- A security policy explains supported versions and the private vulnerability-reporting process.
 
 ### Changed
 - Mega items are leaves in the tree builder; their panel links are managed in the content area rather than as child tree nodes. Legacy child records still render as a backwards-compatible fallback.
+
+### Removed
+- The committed `composer.lock`, which is not appropriate for a reusable library and was out of sync with `composer.json`.
 
 ## [0.1.0] - 2026-07-01
 

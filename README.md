@@ -275,11 +275,15 @@ cd packages/navcraft
 vendor/bin/pest
 ```
 
-52 tests covering models, tree building, rendering, service provider, and deep cloning.
+56 tests covering models, tree building, rendering, service provider, and deep cloning.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Vision
 
