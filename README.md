@@ -170,11 +170,28 @@ this to your CSS entrypoint (unless you publish the views into your app):
 - **`menubar`** — application-style `role="menubar"` / `menuitem`. Use only for
   true app menus, where users expect arrow-key roving focus.
 
+### Mega panel content
+
+Mega items are leaves in the tree. Their panel is authored in the item's
+**Content** tab via a **Panel content** toggle:
+
+- **Link list** — a reorderable list of links, stored on the item as
+  `content.links`. Ideal for straightforward column-style panels.
+- **Page builder** — the Layup builder for rich, freeform content
+  (`content.rows`), which takes precedence when present.
+
+```php
+$item->update(['content' => ['links' => [
+    ['label' => 'Hours & Admission', 'url' => '/visit/hours'],
+    ['label' => 'Directions & Parking', 'url' => '/visit/directions'],
+]]]);
+```
+
 ### Featured card
 
-Any **mega** item can show a featured card next to its auto-generated link
-columns — set a title (and optional body / CTA) under the item's **Content**
-tab, or in code via `settings.featured`:
+Any **mega** item can show a featured card next to its panel links — set a
+title (and optional body / CTA) under the item's **Content** tab, or in code
+via `settings.featured`:
 
 ```php
 $item->update(['settings' => ['featured' => [
@@ -184,8 +201,6 @@ $item->update(['settings' => ['featured' => [
     'cta_url' => '/visit',
 ]]]);
 ```
-
-When the item has Layup content, that renders instead.
 
 ### Theme Presets
 
@@ -260,11 +275,15 @@ cd packages/navcraft
 vendor/bin/pest
 ```
 
-52 tests covering models, tree building, rendering, service provider, and deep cloning.
+56 tests covering models, tree building, rendering, service provider, and deep cloning.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Vision
 

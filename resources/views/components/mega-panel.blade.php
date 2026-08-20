@@ -6,21 +6,19 @@
 
     $content = $item->content ?? [];
     $hasLayupContent = ! empty($content['rows']);
-    $children = $item->children ?? collect();
+    $links = collect($content['links'] ?? []);
+
+    // Backwards-compatible fallback: mega items that still carry child records.
+    if ($links->isEmpty() && ! empty($item->children) && $item->children->isNotEmpty()) {
+        $links = $item->children->map(fn ($child): array => [
+            'label' => $child->label,
+            'url' => $child->getUrl(),
+        ]);
+    }
 
     $settings = $item->settings ?? [];
     $featured = $settings['featured'] ?? null;
     $hasFeatured = is_array($featured) && ! empty($featured['title']);
-
-    $columnCount = min($children->count(), 4);
-    $gridCols = $hasFeatured
-        ? 'md:grid-cols-[2fr_1fr]'
-        : match($columnCount) {
-            1 => 'md:grid-cols-1',
-            2 => 'md:grid-cols-2',
-            3 => 'md:grid-cols-3',
-            default => 'md:grid-cols-4',
-        };
 @endphp
 
 <div
@@ -54,43 +52,23 @@
                 }
             @endphp
         </div>
-    @elseif($children->isNotEmpty() || $hasFeatured)
-        <div class="grid gap-8 p-6 {{ $gridCols }}">
-            @if($children->isNotEmpty())
-                <div class="grid gap-6 sm:grid-cols-2 {{ $hasFeatured ? '' : 'md:col-span-full md:grid-cols-'.max($columnCount, 1) }}">
-                    @foreach($children as $child)
-                        <div>
-                            @if($child->children->isNotEmpty())
-                                <h3 class="mb-3 pb-2 border-b border-[var(--nc-border)] text-xs font-bold uppercase tracking-widest text-[var(--nc-heading)]">
-                                    {{ $child->label }}
-                                </h3>
-                                <ul class="space-y-1" @if($isMenubar) role="menu" @endif>
-                                    @foreach($child->children as $grandchild)
-                                        <li @if($isMenubar) role="none" @endif>
-                                            <a
-                                                href="{{ $grandchild->getUrl() }}"
-                                                @if($linkRole) role="{{ $linkRole }}" @endif
-                                                class="block rounded-md px-2 py-1.5 text-sm text-[var(--nc-fg)] transition hover:bg-[var(--nc-hover-bg)] hover:text-[var(--nc-fg-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)]"
-                                                @if($grandchild->getUrl() === request()->url()) aria-current="page" @endif
-                                            >
-                                                {{ $grandchild->label }}
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <a
-                                    href="{{ $child->getUrl() }}"
-                                    @if($linkRole) role="{{ $linkRole }}" @endif
-                                    class="block rounded-md px-2 py-1.5 text-sm font-semibold text-[var(--nc-fg)] transition hover:bg-[var(--nc-hover-bg)] hover:text-[var(--nc-fg-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)]"
-                                    @if($child->getUrl() === request()->url()) aria-current="page" @endif
-                                >
-                                    {{ $child->label }}
-                                </a>
-                            @endif
-                        </div>
+    @elseif($links->isNotEmpty() || $hasFeatured)
+        <div class="grid gap-8 p-6 {{ $hasFeatured ? 'md:grid-cols-[2fr_1fr]' : '' }}">
+            @if($links->isNotEmpty())
+                <ul class="grid gap-1 sm:grid-cols-2" @if($isMenubar) role="menu" @endif>
+                    @foreach($links as $link)
+                        <li @if($isMenubar) role="none" @endif>
+                            <a
+                                href="{{ $link['url'] ?? '#' }}"
+                                @if($linkRole) role="{{ $linkRole }}" @endif
+                                class="block rounded-md px-2 py-1.5 text-sm font-semibold text-[var(--nc-fg)] transition hover:bg-[var(--nc-hover-bg)] hover:text-[var(--nc-fg-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--nc-ring)]"
+                                @if(($link['url'] ?? null) === request()->url()) aria-current="page" @endif
+                            >
+                                {{ $link['label'] ?? '' }}
+                            </a>
+                        </li>
                     @endforeach
-                </div>
+                </ul>
             @endif
 
             @if($hasFeatured)

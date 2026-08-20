@@ -10,9 +10,11 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Collection;
@@ -104,6 +106,8 @@ class TreeRelationField extends Field
                     'route_name' => $item->route ?? '',
                     'route_params' => $item->settings['route_params'] ?? [],
                     'mega_content' => $item->content ?? ['rows' => []],
+                    'mega_content_type' => ! empty($item->content['rows']) ? 'builder' : 'links',
+                    'mega_links' => array_values($item->content['links'] ?? []),
                     'featured_title' => $item->settings['featured']['title'] ?? '',
                     'featured_body' => $item->settings['featured']['body'] ?? '',
                     'featured_cta_label' => $item->settings['featured']['cta_label'] ?? '',
@@ -179,14 +183,50 @@ class TreeRelationField extends Field
                                         && ! empty(static::getRouteParameters($get('route_name')))
                                     ),
 
+                                ToggleButtons::make('mega_content_type')
+                                    ->label('Panel content')
+                                    ->options([
+                                        'links' => 'Link list',
+                                        'builder' => 'Page builder',
+                                    ])
+                                    ->icons([
+                                        'links' => 'heroicon-o-list-bullet',
+                                        'builder' => 'heroicon-o-squares-2x2',
+                                    ])
+                                    ->default('links')
+                                    ->inline()
+                                    ->live()
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega'),
+
+                                Repeater::make('mega_links')
+                                    ->label('Links')
+                                    ->schema([
+                                        TextInput::make('label')
+                                            ->label('Label')
+                                            ->required(),
+
+                                        TextInput::make('url')
+                                            ->label('URL')
+                                            ->placeholder('/about or https://example.com')
+                                            ->regex('/^(\/|https?:\/\/)/')
+                                            ->required(),
+                                    ])
+                                    ->columns(2)
+                                    ->reorderable()
+                                    ->collapsed()
+                                    ->itemLabel(fn (array $state): ?string => $state['label'] ?? null)
+                                    ->addActionLabel('Add link')
+                                    ->columnSpanFull()
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega' && ($get('mega_content_type') ?? 'links') === 'links'),
+
                                 LayupBuilder::make('mega_content')
                                     ->label('Mega Menu Content')
                                     ->columnSpanFull()
-                                    ->visible(fn (Get $get): bool => $get('type') === 'mega'),
+                                    ->visible(fn (Get $get): bool => $get('type') === 'mega' && $get('mega_content_type') === 'builder'),
 
                                 TextInput::make('featured_title')
                                     ->label('Featured card title')
-                                    ->helperText('Optional. Shown alongside the auto-generated link columns when no Layup content is set.')
+                                    ->helperText('Optional. Shown beside the panel links.')
                                     ->visible(fn (Get $get): bool => $get('type') === 'mega'),
 
                                 TextInput::make('featured_body')
@@ -237,7 +277,18 @@ class TreeRelationField extends Field
                     'type' => $data['type'],
                     'url' => $data['type'] === 'url' ? ($data['url'] ?? null) : null,
                     'route' => $data['type'] === 'route' ? ($data['route_name'] ?? null) : null,
-                    'content' => $data['type'] === 'mega' ? ($data['mega_content'] ?? null) : null,
+                    'content' => $data['type'] !== 'mega'
+                        ? null
+                        : (($data['mega_content_type'] ?? 'links') === 'builder'
+                            ? ($data['mega_content'] ?? null)
+                            : ['links' => collect($data['mega_links'] ?? [])
+                                ->filter(fn (array $link): bool => filled($link['label'] ?? null))
+                                ->map(fn (array $link): array => [
+                                    'label' => $link['label'],
+                                    'url' => $link['url'] ?? '#',
+                                ])
+                                ->values()
+                                ->all()]),
                     'target' => ! empty($data['open_in_new_tab']) ? '_blank' : '_self',
                     'css_class' => $data['css_class'] ?? null,
                     'icon' => $data['icon'] ?? null,
